@@ -112,32 +112,62 @@ impl eframe::App for MyApp {
             }
 
             ui.heading("WebP Converter App");
-
             ui.separator();
+            // Main container with 2 columns
             ui.horizontal(|ui| {
-                ui.label("Input Path: ");
-                // ui.text_edit_singleline(&mut self.input_path);
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.input_path)
-                        .desired_width(ui.available_width()-100.0),
+                let total_width = ui.available_width();
+                let left_width = total_width * 0.7;
+                let right_width = total_width * 0.3;
+
+                ui.allocate_ui_with_layout(
+                    egui::vec2(left_width, ui.available_height()),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        // Left column (wider for inputs)
+                        ui.vertical(|ui| {
+                            // Input Directory
+                            ui.horizontal(|ui| {
+                                ui.label("Input Directory:");
+                                ui.add(egui::TextEdit::singleline(&mut self.input_path));
+                                if ui.button("📁").clicked() {
+                                    self.select_input_directory();
+                                }
+                            });
+
+                            // Output Directory
+                            ui.horizontal(|ui| {
+                                ui.label("Output Directory:");
+                                ui.add_sized(
+                                    [ui.available_width() - 30.0, 20.0],
+                                    egui::TextEdit::singleline(&mut self.output_path)
+                                    .desired_width(ui.available_width() - 30.0));
+                                if ui.button("📁").clicked() {
+                                    self.select_output_directory();
+                                }
+                            });
+                        });
+                    },
                 );
-                if ui.button("📁 Select").clicked() {
-                    self.select_input_directory();
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("Output Path: ");
-                // ui.text_edit_singleline(&mut self.output_path);
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.output_path)
-                        .desired_width(ui.available_width()-100.0),
+
+                ui.allocate_ui_with_layout(
+                    egui::vec2(right_width, ui.available_height()),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        // Right column (for convert button)
+                        ui.add_space(5.0);
+                        if ui
+                            .add_sized(
+                                [ui.available_width() - 80.0, 20.0],
+                                egui::Button::new(RichText::new("\nCONVERT\n")),
+                            )
+                            .clicked()
+                        {
+                            self.convert_in_thread(ctx);
+                        }
+                    },
                 );
-                if ui.button("📁 Select").clicked() {
-                    self.select_output_directory();
-                }
             });
             ui.separator();
-
             ui.horizontal(|ui| {
                 ui.label("Quality: ");
                 // ui.add(egui::Slider::new(&mut self.quality, 0.0..=100.0));

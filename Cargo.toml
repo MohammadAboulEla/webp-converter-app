@@ -1,0 +1,23 @@
+[package]
+name = "webp_converter_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.25"
+rfd = "0.15.3"
+
+image = "0.24"
+webp = "0.3.0"
+anyhow = "1.0"
+rayon = "1.5"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.9", features = ["winuser", "windef"] }
+
+[[bin]]
+name = "egui_app"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"

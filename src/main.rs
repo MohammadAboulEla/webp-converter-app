@@ -208,7 +208,6 @@ impl eframe::App for MyApp {
                 .inner_margin(egui::style::Margin::same(8.0))
                 .show(ui, |ui| {
                     egui::ScrollArea::vertical()
-                        // .max_height(220.0)
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
                             if let Ok(log) = self.log.lock() {

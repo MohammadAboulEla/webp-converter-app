@@ -11,11 +11,15 @@ fn main() -> Result<(), eframe::Error> {
     let window_height = 400.0;
     let window_x = 240.0;
     let window_y = 280.0;
-
+    // min width
+    let min_width = 565.0;
+    let min_height = 280.0;
+ 
     let options = NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([window_width, window_height])
-            .with_position([window_x, window_y]),
+            .with_position([window_x, window_y])
+            .with_min_inner_size([min_width, min_height]),
         ..Default::default()
     };
 
@@ -116,8 +120,8 @@ impl eframe::App for MyApp {
             // Main container with 2 columns
             ui.horizontal(|ui| {
                 let total_width = ui.available_width();
-                let left_width = total_width * 0.7;
-                let right_width = total_width * 0.3;
+                let left_width = total_width * 0.8;
+                let right_width = total_width * 0.2;
 
                 ui.allocate_ui_with_layout(
                     egui::vec2(left_width, ui.available_height()),
@@ -128,8 +132,15 @@ impl eframe::App for MyApp {
                             // Input Directory
                             ui.horizontal(|ui| {
                                 ui.label("Input Directory:");
-                                ui.add(egui::TextEdit::singleline(&mut self.input_path));
-                                if ui.button("📁").clicked() {
+                                        // ui.add(egui::TextEdit::singleline(&mut self.input_path));
+                                ui.add_sized(
+                                    [ui.available_width() - 50.0, 30.0],
+                                    egui::TextEdit::singleline(&mut self.input_path)
+                                        .desired_width(ui.available_width() - 30.0),
+                                );
+                                let button =
+                                    egui::Button::new("📁").min_size(egui::vec2(25.0, 25.0));
+                                if ui.add(button).clicked() {
                                     self.select_input_directory();
                                 }
                             });
@@ -138,10 +149,13 @@ impl eframe::App for MyApp {
                             ui.horizontal(|ui| {
                                 ui.label("Output Directory:");
                                 ui.add_sized(
-                                    [ui.available_width() - 30.0, 20.0],
+                                    [ui.available_width() - 50.0, 30.0],
                                     egui::TextEdit::singleline(&mut self.output_path)
-                                    .desired_width(ui.available_width() - 30.0));
-                                if ui.button("📁").clicked() {
+                                        .desired_width(ui.available_width() - 30.0),
+                                );
+                                let button =
+                                    egui::Button::new("📁").min_size(egui::vec2(25.0, 25.0));
+                                if ui.add(button).clicked() {
                                     self.select_output_directory();
                                 }
                             });
@@ -157,8 +171,8 @@ impl eframe::App for MyApp {
                         ui.add_space(5.0);
                         if ui
                             .add_sized(
-                                [ui.available_width() - 80.0, 20.0],
-                                egui::Button::new(RichText::new("\nCONVERT\n")),
+                                [ui.available_width(), 30.0],
+                                egui::Button::new(RichText::new("\nCONVERT 🔁\n")),
                             )
                             .clicked()
                         {
@@ -188,13 +202,13 @@ impl eframe::App for MyApp {
             });
             ui.add_space(5.0);
             egui::Frame::none()
-                .fill(egui::Color32::from_rgb(40, 30, 20))
+                .fill(egui::Color32::from_rgb(20, 30, 40))
                 .stroke(egui::Stroke::new(1.0, egui::Color32::GRAY))
                 .rounding(5.0)
                 .inner_margin(egui::style::Margin::same(8.0))
                 .show(ui, |ui| {
                     egui::ScrollArea::vertical()
-                        .max_height(220.0)
+                        // .max_height(220.0)
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
                             if let Ok(log) = self.log.lock() {

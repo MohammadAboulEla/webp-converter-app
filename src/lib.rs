@@ -19,9 +19,9 @@ pub fn convert_to_webp(
 
     if output_path.exists() {
         // println!("Warning: Output file already exists and will be overwritten.");
-        let msg = format!("Output file already exists: {:?}", output_path);
-        return Err(anyhow::anyhow!(msg));
-        // return Ok(());
+        // let msg = format!("Output file already exists: {:?}", output_path);
+        // return Err(anyhow::anyhow!(msg));
+        return Ok(());
     }
 
     if input_path == output_path {

@@ -1,10 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use image::io::Reader as ImageReader;
 use rayon::prelude::*;
 use std::fs;
-use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use webp::Encoder;
 
 pub fn convert_to_webp(
@@ -13,19 +13,15 @@ pub fn convert_to_webp(
     quality: f32,
     lossless: bool,
 ) -> Result<()> {
-
     let input_path = Path::new(input_path);
     let output_path = Path::new(output_path);
 
     if output_path.exists() {
-        // println!("Warning: Output file already exists and will be overwritten.");
-        // let msg = format!("Output file already exists: {:?}", output_path);
-        // return Err(anyhow::anyhow!(msg));
         return Ok(());
     }
 
     if input_path == output_path {
-        return Err(anyhow::anyhow!("Input and output paths must differ."));
+        return Err(anyhow!("Input and output paths must differ."));
     }
 
     // Early return if input is already WebP
@@ -34,27 +30,35 @@ pub fn convert_to_webp(
         .and_then(|e| e.to_str())
         .map_or(false, |ext| ext.eq_ignore_ascii_case("webp"))
     {
-        println!("Input is already a WebP image. Skipping conversion.");
-        return Ok(());
+        return Err(anyhow!(
+            "Input is already a WebP image. Skipping conversion."
+        ));
     }
 
     let q = quality.clamp(0.0, 100.0);
 
-    let img = ImageReader::open(input_path)
+    let img_result = ImageReader::open(input_path)
         .with_context(|| format!("Failed to open image: {:?}", input_path))?
-        .decode()
-        .with_context(|| format!("Failed to decode image: {:?}", input_path))?
-        .to_rgba8();
+        .decode();
+
+    let img = match img_result {
+        Ok(decoded) => decoded.to_rgba8(),
+        Err(e) => {
+            println!("Image decoding error for {:?}: {:?}", input_path, e);
+            return Err(anyhow!(e));
+        }
+    };
 
     let (w, h) = img.dimensions();
     let encoder = Encoder::from_rgba(&img, w, h);
 
     let webp = encoder
         .encode_simple(lossless, q)
-        .map_err(|e| anyhow::anyhow!("WebP encoding failed: {:?}", e))?;
+        .map_err(|e| anyhow!("WebP encoding failed: {:?}", e))?;
 
-    let file = File::create(output_path)
+    let file = fs::File::create(output_path)
         .with_context(|| format!("Failed to create file: {:?}", output_path))?;
+
     let mut writer = BufWriter::new(file);
     writer
         .write_all(&webp)
@@ -74,11 +78,11 @@ where
     F: Fn(String) + Sync + Send,
 {
     if input_dir.is_empty() {
-        return Err(anyhow::anyhow!("Input path is empty."));
+        return Err(anyhow!("Input path is empty."));
     }
 
     if output_dir.is_empty() {
-        return Err(anyhow::anyhow!("Output path is empty."));
+        return Err(anyhow!("Output path is empty."));
     }
 
     log_fn(format!("Starting conversion from: {}", input_dir));
@@ -104,8 +108,8 @@ where
     log_fn(format!("Found {} files to convert\n", entries.len()));
 
     // Use Atomic counters for thread-safe counting
-    let success_count = std::sync::atomic::AtomicUsize::new(0);
-    let error_count = std::sync::atomic::AtomicUsize::new(0);
+    let success_count = AtomicUsize::new(0);
+    let error_count = AtomicUsize::new(0);
 
     entries.par_iter().for_each(|path| {
         let filename_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
@@ -113,19 +117,18 @@ where
 
         match convert_to_webp(path.to_str().unwrap(), &output_path, quality, lossless) {
             Ok(_) => {
-                success_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                success_count.fetch_add(1, Ordering::Relaxed);
                 log_fn(format!("Converted: {}", path.display()));
             }
             Err(e) => {
-                error_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                // log_fn(format!("Error converting {}: {}", path.display(), e));
+                error_count.fetch_add(1, Ordering::Relaxed);
                 log_fn(format!("Error: {}", e));
             }
         }
     });
 
-    let total_success = success_count.load(std::sync::atomic::Ordering::Relaxed);
-    let total_errors = error_count.load(std::sync::atomic::Ordering::Relaxed);
+    let total_success = success_count.load(Ordering::Relaxed);
+    let total_errors = error_count.load(Ordering::Relaxed);
 
     log_fn(format!(
         "\nFinished processing all files\nSuccess: {}\nErrors: {}\nTotal: {}",
@@ -135,4 +138,32 @@ where
     ));
 
     Ok(())
+}
+
+// test
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_to_webp() {
+        let input_path = r"test\input\bad.jpg";
+        let output_path = r"test\output\bad.webp";
+        let quality = 87.0;
+        let lossless = false;
+
+        let result = convert_to_webp(input_path, output_path, quality, lossless);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_to_webp2() {
+        let input_path = r"test\input\good.png";
+        let output_path = r"test\output\good.webp";
+        let quality = 87.0;
+        let lossless = false;
+
+        let result = convert_to_webp(input_path, output_path, quality, lossless);
+        assert!(result.is_ok());
+    }
 }

@@ -1,7 +1,7 @@
 # Package metadata
 [package]
 name = "webp_converter_app" # Name of the project
-version = "0.1.0"           # Initial version
+version = "0.2.0"           # Initial version
 edition = "2024"            # Rust edition used (2024)
 
 # Dependencies shared across all targets

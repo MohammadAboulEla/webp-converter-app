@@ -1,5 +1,7 @@
 # WebP Converter App
 
+![Preview](examples/preview.jpg)
+
 A very fast, lightweight, and multithreaded GUI application built in Rust for bulk image conversion to WebP format. Leveraging Rust’s threading capabilities, it efficiently processes multiple images in parallel for high-speed performance.
 
 ## Features

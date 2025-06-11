@@ -1,7 +1,9 @@
-use anyhow::{Context, Result, anyhow};
-use image::io::Reader as ImageReader;
+use anyhow::{Context, Result, anyhow, ensure};
+// use image::ImageReader;
 use rayon::prelude::*;
+use stb_image::image::{LoadResult, load_with_depth};
 use std::fs;
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -16,53 +18,46 @@ pub fn convert_to_webp(
     let input_path = Path::new(input_path);
     let output_path = Path::new(output_path);
 
+    ensure!(
+        input_path != output_path,
+        "Input and output paths must differ."
+    );
+
     if output_path.exists() {
         return Ok(());
     }
 
-    if input_path == output_path {
-        return Err(anyhow!("Input and output paths must differ."));
-    }
-
-    // Early return if input is already WebP
-    if input_path
+    let ext = input_path
         .extension()
         .and_then(|e| e.to_str())
-        .map_or(false, |ext| ext.eq_ignore_ascii_case("webp"))
-    {
-        return Err(anyhow!(
-            "Input is already a WebP image. Skipping conversion."
-        ));
-    }
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    ensure!(ext != "webp", "Input is already a WebP image.");
 
-    let q = quality.clamp(0.0, 100.0);
-
-    let img_result = ImageReader::open(input_path)
-        .with_context(|| format!("Failed to open image: {:?}", input_path))?
-        .decode();
-
-    let img = match img_result {
-        Ok(decoded) => decoded.to_rgba8(),
-        Err(e) => {
-            println!("Image decoding error for {:?}: {:?}", input_path, e);
-            return Err(anyhow!(e));
+    let img_data = match load_with_depth(input_path, 4, false) {
+        LoadResult::ImageU8(data) => data,
+        LoadResult::Error(msg) => {
+            return Err(anyhow!("stb_image failed for {:?}: {}", input_path, msg));
         }
+        _ => return Err(anyhow!("Unsupported format: {:?}", input_path)),
     };
 
-    let (w, h) = img.dimensions();
-    let encoder = Encoder::from_rgba(&img, w, h);
+    let encoder = Encoder::from_rgba(
+        &img_data.data,
+        img_data.width as u32,
+        img_data.height as u32,
+    );
+    let webp = if lossless {
+        encoder.encode_lossless()
+    } else {
+        encoder.encode(quality.clamp(0.0, 100.0))
+    };
 
-    let webp = encoder
-        .encode_simple(lossless, q)
-        .map_err(|e| anyhow!("WebP encoding failed: {:?}", e))?;
-
-    let file = fs::File::create(output_path)
-        .with_context(|| format!("Failed to create file: {:?}", output_path))?;
-
-    let mut writer = BufWriter::new(file);
-    writer
-        .write_all(&webp)
-        .with_context(|| "Failed to write WebP data")?;
+    let mut writer = BufWriter::new(
+        File::create(output_path)
+            .with_context(|| format!("Failed to create file: {:?}", output_path))?,
+    );
+    writer.write_all(&webp)?;
 
     Ok(())
 }

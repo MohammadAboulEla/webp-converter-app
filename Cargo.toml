@@ -1,27 +1,31 @@
 # Package metadata
 [package]
-name = "webp_converter_app"   # Name of the project
-version = "0.1.0"             # Initial version
-edition = "2024"              # Rust edition used (2024)
+name = "webp_converter_app" # Name of the project
+version = "0.1.0"           # Initial version
+edition = "2024"            # Rust edition used (2024)
 
 # Dependencies shared across all targets
 [dependencies]
-eframe = "0.25"               # GUI framework based on egui
-rfd = "0.15.3"                # File/folder dialog support
-image = "0.24"                # Image processing library
-webp = "0.3.0"                # WebP encoding/decoding
-anyhow = "1.0"                # Simplified error handling
-rayon = "1.5"                 # Data-parallelism and multithreading
+eframe = "0.25" # GUI framework based on egui
+rfd = "0.15.3"    # File/folder dialog support
+stb_image = "0.3.0" # Image loading library
+webp = "0.3.0"    # WebP encoding/decoding
+anyhow = "1.0"    # Simplified error handling
+rayon = "1.5"     # Data-parallelism and multithreading
+
 
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.9", features = ["winuser", "windef"] } # Windows API bindings for GUI operations
+winapi = { version = "0.3.9", features = [
+    "winuser",
+    "windef",
+] } # Windows API bindings for GUI operations
 
 # Release build configuration
 [profile.release]
-panic = "abort"               # Reduces binary size by disabling stack unwinding
+panic = "abort" # Reduces binary size by disabling stack unwinding
 
 # Define the main binary (entry point)
 [[bin]]
-name = "egui_app"             # Name of the main binary
-path = "src/main.rs"          # Path to its source file
+name = "egui_app"    # Name of the main binary
+path = "src/main.rs" # Path to its source file

@@ -33,7 +33,7 @@ cargo build --release
 |---------------|------------------------|
 | `eframe/egui` | GUI framework          |
 | `rfd`         | Native file dialogs    |
-| `image`       | Image decoding         |
+| `stb_image`   | Image decoding         |
 | `webp`        | WebP encoding          |
 | `rayon`       | Parallel processing    |
 | `anyhow`      | Error handling         |

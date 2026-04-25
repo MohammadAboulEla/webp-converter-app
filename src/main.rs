@@ -211,51 +211,56 @@ impl MyApp {
     }
 
     fn ui_paths(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let label_w = 180.0;
+        let label_w = 160.0;
         let btn_w = 32.0;
         let row_h = 30.0;
-        let spacing = ui.spacing().item_spacing.x;
-        let edit_w =
-            (ui.available_width() - label_w - btn_w - spacing * 2.0).max(60.0);
 
         let mut clicked_input = false;
         ui.horizontal(|ui| {
-            ui.add_sized(
-                [label_w, row_h],
-                egui::Label::new("Input Directory:").truncate(),
+            ui.allocate_ui_with_layout(
+                egui::vec2(label_w, row_h),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    ui.label("Input Directory:");
+                },
             );
-            ui.add_sized(
-                [edit_w, row_h],
-                egui::TextEdit::singleline(&mut self.input_path),
-            );
-            if ui
-                .add_sized([btn_w, row_h], egui::Button::new("📁"))
-                .clicked()
-            {
-                clicked_input = true;
-            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.add_sized([btn_w, row_h], egui::Button::new("📁")).clicked() {
+                    clicked_input = true;
+                }
+                ui.add_sized(
+                    [ui.available_width(), row_h],
+                    egui::TextEdit::singleline(&mut self.input_path),
+                );
+            });
         });
+
         if clicked_input {
             self.spawn_folder_picker(self.pending_input.clone(), ctx);
         }
 
+        ui.add_space(4.0);
+
         let mut clicked_output = false;
         ui.horizontal(|ui| {
-            ui.add_sized(
-                [label_w, row_h],
-                egui::Label::new("Output Directory:").truncate(),
+            ui.allocate_ui_with_layout(
+                egui::vec2(label_w, row_h),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    ui.label("Output Directory:");
+                },
             );
-            ui.add_sized(
-                [edit_w, row_h],
-                egui::TextEdit::singleline(&mut self.output_path),
-            );
-            if ui
-                .add_sized([btn_w, row_h], egui::Button::new("📁"))
-                .clicked()
-            {
-                clicked_output = true;
-            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.add_sized([btn_w, row_h], egui::Button::new("📁")).clicked() {
+                    clicked_output = true;
+                }
+                ui.add_sized(
+                    [ui.available_width(), row_h],
+                    egui::TextEdit::singleline(&mut self.output_path),
+                );
+            });
         });
+
         if clicked_output {
             self.spawn_folder_picker(self.pending_output.clone(), ctx);
         }
@@ -364,12 +369,12 @@ impl eframe::App for MyApp {
 
                     ui.allocate_ui_with_layout(
                         egui::vec2(paths_w, row_h),
-                        egui::Layout::top_down(egui::Align::Min),
+                        egui::Layout::top_down(egui::Align::Center),
                         |ui| self.ui_paths(ui, &ctx),
                     );
                     ui.allocate_ui_with_layout(
                         egui::vec2(button_w, row_h),
-                        egui::Layout::top_down(egui::Align::Min),
+                        egui::Layout::top_down(egui::Align::Center),
                         |ui| {
                             self.ui_convert_button(ui, &ctx);
                         },

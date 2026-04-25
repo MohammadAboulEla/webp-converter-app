@@ -6,12 +6,12 @@ edition = "2024"            # Rust edition used (2024)
 
 # Dependencies shared across all targets
 [dependencies]
-eframe = "0.25" # GUI framework based on egui
-rfd = "0.15.3"    # File/folder dialog support
-stb_image = "0.3.0" # Image loading library
-webp = "0.3.0"    # WebP encoding/decoding
-anyhow = "1.0"    # Simplified error handling
-rayon = "1.5"     # Data-parallelism and multithreading
+eframe = "0.34"     # GUI framework based on egui
+rfd = "0.17"        # File/folder dialog support
+stb_image = "0.3"   # Image loading library
+webp = "0.3"        # WebP encoding/decoding
+anyhow = "1.0"      # Simplified error handling
+rayon = "1.12"      # Data-parallelism and multithreading
 
 
 # Windows-specific dependencies

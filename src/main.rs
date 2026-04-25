@@ -24,10 +24,10 @@ fn main() -> Result<(), eframe::Error> {
         "WebP Converter App",
         options,
         Box::new(|cc| {
-            let mut style: Style = (*cc.egui_ctx.style()).clone();
+            let mut style: Style = (*cc.egui_ctx.global_style()).clone();
             style.override_font_id = Some(FontId::new(20.0, FontFamily::Proportional));
-            cc.egui_ctx.set_style(style);
-            Box::new(MyApp::new(cc))
+            cc.egui_ctx.set_global_style(style);
+            Ok(Box::new(MyApp::new(cc)))
         }),
     )
 }
@@ -222,7 +222,7 @@ impl MyApp {
         ui.horizontal(|ui| {
             ui.add_sized(
                 [label_w, row_h],
-                egui::Label::new("Input Directory:").truncate(true),
+                egui::Label::new("Input Directory:").truncate(),
             );
             ui.add_sized(
                 [edit_w, row_h],
@@ -243,7 +243,7 @@ impl MyApp {
         ui.horizontal(|ui| {
             ui.add_sized(
                 [label_w, row_h],
-                egui::Label::new("Output Directory:").truncate(true),
+                egui::Label::new("Output Directory:").truncate(),
             );
             ui.add_sized(
                 [edit_w, row_h],
@@ -319,11 +319,11 @@ impl MyApp {
     }
 
     fn ui_log(&self, ui: &mut egui::Ui) {
-        egui::Frame::none()
+        egui::Frame::new()
             .fill(Color32::from_rgb(20, 30, 40))
             .stroke(egui::Stroke::new(1.0, Color32::GRAY))
-            .rounding(5.0)
-            .inner_margin(egui::style::Margin::same(8.0))
+            .corner_radius(5)
+            .inner_margin(egui::Margin::same(8))
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false; 2])
@@ -343,13 +343,14 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.drain_pending_pickers();
 
-        let panel_frame = egui::Frame::central_panel(&ctx.style())
-            .inner_margin(egui::style::Margin::symmetric(12.0, 10.0));
+        let ctx = ui.ctx().clone();
+        let panel_frame = egui::Frame::central_panel(&ctx.global_style())
+            .inner_margin(egui::Margin::symmetric(12, 10));
 
-        egui::CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
+        panel_frame.show(ui, |ui| {
             ui.heading("WebP Batch Converter App");
             ui.separator();
 
@@ -364,13 +365,13 @@ impl eframe::App for MyApp {
                     ui.allocate_ui_with_layout(
                         egui::vec2(paths_w, row_h),
                         egui::Layout::top_down(egui::Align::Min),
-                        |ui| self.ui_paths(ui, ctx),
+                        |ui| self.ui_paths(ui, &ctx),
                     );
                     ui.allocate_ui_with_layout(
                         egui::vec2(button_w, row_h),
                         egui::Layout::top_down(egui::Align::Min),
                         |ui| {
-                            self.ui_convert_button(ui, ctx);
+                            self.ui_convert_button(ui, &ctx);
                         },
                     );
                 },

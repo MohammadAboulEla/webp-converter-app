@@ -1,31 +1,45 @@
 use anyhow::{Context, Result, anyhow, ensure};
-// use image::ImageReader;
 use rayon::prelude::*;
 use stb_image::image::{LoadResult, load_with_depth};
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use webp::Encoder;
 
+const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "tiff", "gif"];
+
+#[derive(Debug, Clone)]
+pub enum LogEvent {
+    Started { input_dir: String },
+    Discovered { total: usize },
+    Converted { path: PathBuf },
+    Skipped { path: PathBuf, reason: SkipReason },
+    Error { msg: String },
+    Finished {
+        success: usize,
+        skipped: usize,
+        errors: usize,
+        total: usize,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum SkipReason {
+    OutputExists,
+}
+
 pub fn convert_to_webp(
-    input_path: &str,
-    output_path: &str,
+    input_path: &Path,
+    output_path: &Path,
     quality: f32,
     lossless: bool,
 ) -> Result<()> {
-    let input_path = Path::new(input_path);
-    let output_path = Path::new(output_path);
-
     ensure!(
         input_path != output_path,
         "Input and output paths must differ."
     );
-
-    if output_path.exists() {
-        return Ok(());
-    }
 
     let ext = input_path
         .extension()
@@ -70,20 +84,18 @@ pub fn convert_to_webp_dir_threads<F>(
     log_fn: F,
 ) -> anyhow::Result<()>
 where
-    F: Fn(String) + Sync + Send,
+    F: Fn(LogEvent) + Sync + Send,
 {
-    if input_dir.is_empty() {
-        return Err(anyhow!("Input path is empty."));
-    }
+    ensure!(!input_dir.is_empty(), "Input path is empty.");
+    ensure!(!output_dir.is_empty(), "Output path is empty.");
 
-    if output_dir.is_empty() {
-        return Err(anyhow!("Output path is empty."));
-    }
-
-    log_fn(format!("Starting conversion from: {}", input_dir));
+    log_fn(LogEvent::Started {
+        input_dir: input_dir.to_string(),
+    });
     fs::create_dir_all(output_dir)?;
+    let output_dir = Path::new(output_dir);
 
-    let entries: Vec<_> = fs::read_dir(input_dir)?
+    let entries: Vec<PathBuf> = fs::read_dir(input_dir)?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| {
@@ -92,73 +104,82 @@ where
                     .extension()
                     .and_then(|e| e.to_str())
                     .map_or(false, |ext| {
-                        matches!(
-                            ext.to_ascii_lowercase().as_str(),
-                            "png" | "jpg" | "jpeg" | "bmp" | "tiff" | "gif"
-                        )
+                        let lower = ext.to_ascii_lowercase();
+                        SUPPORTED_EXTENSIONS.contains(&lower.as_str())
                     })
         })
         .collect();
 
-    log_fn(format!("Found {} files to convert\n", entries.len()));
+    log_fn(LogEvent::Discovered { total: entries.len() });
 
-    // Use Atomic counters for thread-safe counting
     let success_count = AtomicUsize::new(0);
+    let skipped_count = AtomicUsize::new(0);
     let error_count = AtomicUsize::new(0);
 
     entries.par_iter().for_each(|path| {
-        let filename_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
-        let output_path = format!("{}/{}.webp", output_dir, filename_stem);
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
+        let output_path = output_dir.join(format!("{stem}.webp"));
 
-        match convert_to_webp(path.to_str().unwrap(), &output_path, quality, lossless) {
+        if output_path.exists() {
+            skipped_count.fetch_add(1, Ordering::Relaxed);
+            log_fn(LogEvent::Skipped {
+                path: path.clone(),
+                reason: SkipReason::OutputExists,
+            });
+            return;
+        }
+
+        match convert_to_webp(path, &output_path, quality, lossless) {
             Ok(_) => {
                 success_count.fetch_add(1, Ordering::Relaxed);
-                log_fn(format!("Converted: {}", path.display()));
+                log_fn(LogEvent::Converted { path: path.clone() });
             }
             Err(e) => {
                 error_count.fetch_add(1, Ordering::Relaxed);
-                log_fn(format!("Error: {}", e));
+                log_fn(LogEvent::Error {
+                    msg: format!("{}: {}", path.display(), e),
+                });
             }
         }
     });
 
-    let total_success = success_count.load(Ordering::Relaxed);
-    let total_errors = error_count.load(Ordering::Relaxed);
-
-    log_fn(format!(
-        "\nFinished processing all files\nSuccess: {}\nErrors: {}\nTotal: {}",
-        total_success,
-        total_errors,
-        entries.len()
-    ));
+    log_fn(LogEvent::Finished {
+        success: success_count.load(Ordering::Relaxed),
+        skipped: skipped_count.load(Ordering::Relaxed),
+        errors: error_count.load(Ordering::Relaxed),
+        total: entries.len(),
+    });
 
     Ok(())
 }
 
-// test
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_convert_to_webp() {
-        let input_path = r"test\input\bad.jpg";
-        let output_path = r"test\output\bad.webp";
-        let quality = 87.0;
-        let lossless = false;
-
-        let result = convert_to_webp(input_path, output_path, quality, lossless);
-        assert!(result.is_ok());
+    fn convert_to_webp_rejects_same_path() {
+        let p = Path::new("a.webp");
+        let result = convert_to_webp(p, p, 87.0, false);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_convert_to_webp2() {
-        let input_path = r"test\input\good.png";
-        let output_path = r"test\output\good.webp";
-        let quality = 87.0;
-        let lossless = false;
+    fn convert_to_webp_rejects_webp_input() {
+        let result = convert_to_webp(
+            Path::new("foo.webp"),
+            Path::new("bar.webp.copy"),
+            87.0,
+            false,
+        );
+        assert!(result.is_err());
+    }
 
-        let result = convert_to_webp(input_path, output_path, quality, lossless);
-        assert!(result.is_ok());
+    #[test]
+    fn convert_dir_rejects_empty_paths() {
+        let r = convert_to_webp_dir_threads("", "out", 87.0, false, |_| {});
+        assert!(r.is_err());
+        let r = convert_to_webp_dir_threads("in", "", 87.0, false, |_| {});
+        assert!(r.is_err());
     }
 }
